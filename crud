@@ -1,0 +1,27 @@
+def storeEachRecord(tableName: String, alert_Summary_Record: Alert_Summary_Record)(mySQL: Statement) = {
+
+    val created_ts = System.currentTimeMillis()
+    val updated_ts = System.currentTimeMillis()
+
+    val upsertOnNonDuplicateKeyQuery =
+      s"""
+         |INSERT INTO $tableName $insertColumns
+         |VALUES ('${nodeCustomerData.imei}', '${nodeCustomerData.msisdn}', '${nodeCustomerData.iccid}',
+         | '${nodeCustomerData.account_ref}', $created_ts, $updated_ts
+         | )
+         |ON DUPLICATE KEY
+         |UPDATE msisdn = '${nodeCustomerData.msisdn}' , iccid = '${nodeCustomerData.iccid}' , account_ref = '${nodeCustomerData.account_ref}' , updated_ts = $updated_ts
+      """.stripMargin
+
+    log.debug(s"GPS Aurora Query: $upsertOnNonDuplicateKeyQuery")
+    try {
+      mySQL.execute(upsertOnNonDuplicateKeyQuery)
+    } catch {
+      case ex: SQLIntegrityConstraintViolationException =>
+        log.warn(s"Unable to upsert the record $upsertOnNonDuplicateKeyQuery " + ex.getMessage)
+        false
+      case ex: Exception =>
+        log.error(s"Unhandled error while storing the record $upsertOnNonDuplicateKeyQuery " + ex.getMessage)
+        false
+    }
+  }
